@@ -1,7 +1,16 @@
 require('module-alias/register');
 const FOBasePage = require('@pages/FO/FObasePage');
 
+/**
+ * Checkout page, contains functions that can be used on the page
+ * @class
+ * @extends FOBasePage
+ */
 class Checkout extends FOBasePage {
+  /**
+   * @constructs
+   * Setting up texts and selectors to use on checkout page
+   */
   constructor() {
     super();
 
@@ -16,9 +25,13 @@ class Checkout extends FOBasePage {
     this.termsOfServiceModalDiv = '#modal div.js-modal-content';
     this.paymentConfirmationButton = `${this.paymentStepSection} #payment-confirmation button:not([disabled])`;
     this.shippingValueSpan = '#cart-subtotal-shipping span.value';
+    this.noPaymentNeededElement = `${this.paymentStepSection} div.content > p.cart-payment-step-not-needed-info`;
+    this.noPaymentNeededText = 'No payment needed for this order';
+
     // Personal information form
     this.personalInformationStepForm = '#checkout-personal-information-step';
-    this.createAccountOptionalNotice = `${this.personalInformationStepForm} #customer-form section p`;
+    this.createAccountOptionalNotice = `${this.personalInformationStepForm} `
+      + '#customer-form .form-informations .form-informations-title';
     this.signInLink = `${this.personalInformationStepForm} a[href="#checkout-login-form"]`;
     this.checkoutGuestForm = '#checkout-guest-form';
     this.checkoutGuestGenderInput = pos => `${this.checkoutGuestForm} input[name='id_gender'][value='${pos}']`;
@@ -32,11 +45,13 @@ class Checkout extends FOBasePage {
     this.checkoutGuestNewsletterCheckbox = `${this.checkoutGuestForm} input[name='newsletter']`;
     this.checkoutGuestGdprCheckbox = `${this.checkoutGuestForm} input[name='psgdpr']`;
     this.checkoutGuestContinueButton = `${this.checkoutGuestForm} button[name='continue']`;
+
     // Checkout login form
     this.checkoutLoginForm = `${this.personalInformationStepForm} #checkout-login-form`;
     this.emailInput = `${this.checkoutLoginForm} input[name='email']`;
     this.passwordInput = `${this.checkoutLoginForm} input[name='password']`;
     this.personalInformationContinueButton = `${this.checkoutLoginForm} #login-form footer button`;
+
     // Checkout address form
     this.addressStepSection = '#checkout-addresses-step';
     this.addressStepCompanyInput = `${this.addressStepSection} input[name='company']`;
@@ -44,7 +59,9 @@ class Checkout extends FOBasePage {
     this.addressStepPostCodeInput = `${this.addressStepSection} input[name='postcode']`;
     this.addressStepCityInput = `${this.addressStepSection} input[name='city']`;
     this.addressStepPhoneInput = `${this.addressStepSection} input[name='phone']`;
+    this.addressStepUseSameAddressCheckbox = '#use_same_address';
     this.addressStepContinueButton = `${this.addressStepSection} button[name='confirm-addresses']`;
+
     // Shipping method step
     this.deliveryStepSection = '#checkout-delivery-step';
     this.deliveryOptionsRadios = 'input[id*=\'delivery_option_\']';
@@ -54,6 +71,7 @@ class Checkout extends FOBasePage {
     this.deliveryOptionAllPricesSpan = '#js-delivery .delivery-option span.carrier-price';
     this.deliveryMessage = '#delivery_message';
     this.deliveryStepContinueButton = `${this.deliveryStepSection} button[name='confirmDeliveryOption']`;
+
     // Gift selectors
     this.giftCheckbox = '#input_gift';
     this.recycableGiftCheckbox = '#input_recyclable';
@@ -115,6 +133,25 @@ class Checkout extends FOBasePage {
    */
   isShippingMethodVisible(page, shippingMethod) {
     return this.elementVisible(page, this.deliveryOptionLabel(shippingMethod), 2000);
+  }
+
+  /**
+   * Is confirm button visible and enabled
+   * @param page
+   * @returns {Promise<boolean>}
+   */
+  isPaymentConfirmationButtonVisibleAndEnabled(page) {
+    // small side effect note, the selector is the one that checks for disabled
+    return this.elementVisible(page, this.paymentConfirmationButton, 1000);
+  }
+
+  /**
+   * Get No payment needed block content
+   * @param page
+   * @returns {string}
+   */
+  getNoPaymentNeededBlockContent(page) {
+    return this.getTextContent(page, this.noPaymentNeededElement);
   }
 
   /**
@@ -191,6 +228,24 @@ class Checkout extends FOBasePage {
       this.waitForVisibleSelector(page, this.paymentConfirmationButton),
       page.click(this.conditionToApproveLabel),
     ]);
+    await this.clickAndWaitForNavigation(page, this.paymentConfirmationButton);
+  }
+
+  /**
+   * Order when no payment is needed
+   * @param page
+   * @returns {Promise<void>}
+   */
+  async orderWithoutPaymentMethod(page) {
+    // Click on terms of services checkbox if visible
+    if (await this.elementVisible(page, this.conditionToApproveLabel, 500)) {
+      await Promise.all([
+        this.waitForVisibleSelector(page, this.paymentConfirmationButton),
+        page.click(this.conditionToApproveLabel),
+      ]);
+    }
+
+    // Validate the order
     await this.clickAndWaitForNavigation(page, this.paymentConfirmationButton);
   }
 
@@ -293,18 +348,40 @@ class Checkout extends FOBasePage {
   }
 
   /**
-   * Set address
+   * Fill address form, used for delivery and invoice addresses
    * @param page {Page} Browser tab
-   * @param address {object} Address's information to add
-   * @returns {Promise<boolean>}
+   * @param address {object} Address's information to fill form with
+   * @returns {Promise<void>}
    */
-  async setAddress(page, address) {
+  async fillAddressForm(page, address) {
     await this.setValue(page, this.addressStepCompanyInput, address.company);
     await this.setValue(page, this.addressStepAddress1Input, address.address);
     await this.setValue(page, this.addressStepPostCodeInput, address.postalCode);
     await this.setValue(page, this.addressStepCityInput, address.city);
     await page.type(this.addressStepPhoneInput, address.phone, {delay: 50});
     await this.setValue(page, this.addressStepPhoneInput, address.phone);
+  }
+
+  /**
+   * Set address step
+   * @param page {Page} Browser tab
+   * @param deliveryAddress {object} Address's information to add (for delivery)
+   * @param invoiceAddress {object} Address's information to add (for invoice
+   * @returns {Promise<boolean>}
+   */
+  async setAddress(page, deliveryAddress, invoiceAddress = null) {
+    // Set delivery address
+    await this.fillAddressForm(page, deliveryAddress);
+
+    // Set invoice address if not null
+    if (invoiceAddress !== null) {
+      await page.uncheck(this.addressStepUseSameAddressCheckbox);
+      await page.click(this.addressStepContinueButton);
+      await this.fillAddressForm(page, invoiceAddress);
+    } else {
+      await page.check(this.addressStepUseSameAddressCheckbox);
+    }
+
     await page.click(this.addressStepContinueButton);
     return this.isStepCompleted(page, this.addressStepSection);
   }
@@ -352,7 +429,8 @@ class Checkout extends FOBasePage {
 
     // Click on continue
     await page.click(this.checkoutGuestContinueButton);
-    return this.isStepCompleted(page, this.personalInformationStepForm, 2000);
+
+    return this.isStepCompleted(page, this.personalInformationStepForm);
   }
 }
 

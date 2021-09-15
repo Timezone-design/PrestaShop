@@ -2013,4 +2013,151 @@ class OrderFeatureContext extends AbstractDomainFeatureContext
             );
         }
     }
+
+    /**
+     * @Then /^the order "(.+)" should have (\d+) document(s?)$/
+     *
+     * @param string $orderReference
+     * @param int $numDocuments
+     */
+    public function orderHasNumDocuments(string $orderReference, int $numDocuments): void
+    {
+        $orderId = SharedStorage::getStorage()->get($orderReference);
+        /** @var OrderForViewing $orderForViewing */
+        $orderForViewing = $this->getQueryBus()->handle(new GetOrderForViewing($orderId));
+
+        Assert::assertEquals(
+            $numDocuments,
+            count($orderForViewing->getDocuments()->getDocuments()),
+            sprintf(
+                'Invalid number of order documents, expected %s but got %s instead',
+                $numDocuments,
+                count($orderForViewing->getDocuments()->getDocuments())
+            )
+        );
+    }
+
+    /**
+     * @Then /^the order "(.+)" should have following documents:$/
+     *
+     * @param string $orderReference
+     * @param TableNode $table
+     */
+    public function orderHasFollowingDocuments(string $orderReference, TableNode $table): void
+    {
+        $orderId = SharedStorage::getStorage()->get($orderReference);
+        /** @var OrderForViewing $orderForViewing */
+        $orderForViewing = $this->getQueryBus()->handle(new GetOrderForViewing($orderId));
+
+        $expectedDetails = $table->getHash();
+        foreach ($expectedDetails as $expectedDetail) {
+            $hasDocument = $document = false;
+            foreach ($orderForViewing->getDocuments()->getDocuments() as $document) {
+                if ($expectedDetail['referenceNumber'] === $document->getReferenceNumber()) {
+                    $hasDocument = true;
+                    break;
+                }
+            }
+            if (!$hasDocument) {
+                throw new RuntimeException(sprintf(
+                    'Document not found : %s',
+                    $expectedDetail['referenceNumber']
+                ));
+            }
+
+            Assert::assertEquals(
+                $expectedDetail['type'],
+                $document->getType(),
+                sprintf(
+                    'Invalid document type for order %s, expected %s instead of %s',
+                    $orderReference,
+                    $expectedDetail['type'],
+                    $document->getType()
+                )
+            );
+            Assert::assertEquals(
+                $expectedDetail['amount'],
+                $document->getAmount(),
+                sprintf(
+                    'Invalid document type for order %s, expected %s instead of %s',
+                    $orderReference,
+                    $expectedDetail['amount'],
+                    $document->getAmount()
+                )
+            );
+        }
+    }
+
+    /**
+     * @Then /^the order "(.+)" should have following customizations:$/
+     *
+     * @param string $orderReference
+     * @param TableNode $table
+     */
+    public function orderHasFollowingCustomizations(string $orderReference, TableNode $table): void
+    {
+        $orderId = SharedStorage::getStorage()->get($orderReference);
+        /** @var OrderForViewing $orderForViewing */
+        $orderForViewing = $this->getQueryBus()->handle(new GetOrderForViewing($orderId));
+
+        $expectedDetails = $table->getHash();
+        foreach ($expectedDetails as $expectedDetail) {
+            $hasProduct = $product = false;
+            foreach ($orderForViewing->getProducts()->getProducts() as $product) {
+                if ($expectedDetail['productReference'] === $product->getReference()) {
+                    $hasProduct = true;
+                    break;
+                }
+            }
+            if (!$hasProduct) {
+                throw new RuntimeException(sprintf(
+                    'Product not found : %s',
+                    $expectedDetail['productReference']
+                ));
+            }
+
+            if ($product->getCustomizations() === null) {
+                throw new RuntimeException(sprintf(
+                    'No customizations found for Product %s',
+                    $expectedDetail['productReference']
+                ));
+            }
+
+            $customizations = [];
+            if ($expectedDetail['type'] === 'text') {
+                $customizations = $product->getCustomizations()->getTextCustomizations();
+            }
+            if ($expectedDetail['type'] === 'file') {
+                $customizations = $product->getCustomizations()->getFileCustomizations();
+            }
+
+            $hasCustomization = $customization = false;
+            foreach ($customizations as $customization) {
+                if ($expectedDetail['name'] === $customization->getName()) {
+                    $hasCustomization = true;
+                    break;
+                }
+            }
+            if (!$hasCustomization) {
+                throw new RuntimeException(sprintf(
+                    'Customization not found : %s (for Product %s)',
+                    $expectedDetail['name'],
+                    $expectedDetail['productReference']
+                ));
+            }
+
+            Assert::assertEquals(
+                $expectedDetail['value'],
+                $customization->getValue(),
+                sprintf(
+                    'Invalid value for the customization %s in product %s for order %s, expected %s instead of %s',
+                    $expectedDetail['name'],
+                    $expectedDetail['productReference'],
+                    $orderReference,
+                    $expectedDetail['value'],
+                    $customization->getValue()
+                )
+            );
+        }
+    }
 }

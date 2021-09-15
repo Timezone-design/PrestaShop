@@ -1,7 +1,16 @@
 require('module-alias/register');
 const FOBasePage = require('@pages/FO/FObasePage');
 
+/**
+ * Contact us page, contains functions that can be used on the page
+ * @class
+ * @extends FOBasePage
+ */
 class ContactUs extends FOBasePage {
+  /**
+   * @constructs
+   * Setting up texts and selectors to use on contact us page
+   */
   constructor() {
     super();
 
@@ -14,7 +23,7 @@ class ContactUs extends FOBasePage {
     // Form selectors
     this.subjectSelect = '#content select[name=\'id_contact\']';
     this.emailAddressInput = '#content input[name=\'from\']';
-    this.attachmentLabel = '#filestyle-0';
+    this.attachmentLabel = '#file-upload';
     this.orderReferenceSelect = 'select[name=id_order]';
     this.messageTextarea = '#content textarea[name=\'message\']';
     this.sendButton = '#content input[name=\'submitMessage\']';
@@ -65,6 +74,15 @@ class ContactUs extends FOBasePage {
    */
   async getEmailFieldValue(page) {
     return this.getAttributeContent(page, this.emailAddressInput, 'value');
+  }
+
+  /**
+   * Check if attachment input is visible
+   * @param page {Page} Browser tab
+   * @returns {Promise<boolean>}
+   */
+  isAttachmentInputVisible(page) {
+    return this.elementVisible(page, this.attachmentLabel, 1000);
   }
 }
 

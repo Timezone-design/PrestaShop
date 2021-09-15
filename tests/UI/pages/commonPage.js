@@ -137,7 +137,7 @@ class CommonPage {
    * @param page {Page} Browser tab
    * @param selector, element to check
    * @param timeout {number} Time to wait on milliseconds before throwing an error
-   * @returns {Promise<boolean>}, true if visible, false if not
+   * @returns {Promise<boolean>} True if not visible, false if visible
    */
   async elementNotVisible(page, selector, timeout = 10) {
     try {
@@ -153,7 +153,7 @@ class CommonPage {
    * @param page {Page} Browser tab
    * @param selector {string} String to locate the element for the click
    * @param newPageSelector {string} String to locate the element on the opened page (default to FO logo)
-   * @return newPage {Promise<Page>} Opened tab after the click
+   * @return {Promise<Page>} Opened tab after the click
    */
   async openLinkWithTargetBlank(page, selector, newPageSelector = 'body .logo') {
     const [newPage] = await Promise.all([
@@ -192,7 +192,7 @@ class CommonPage {
    * Delete the existing text from input then set a value
    * @param page {Page} Browser tab
    * @param selector {string} String to locate the input to set its value
-   * @param value {string} Value to set on the input
+   * @param value {?string|number} Value to set on the input
    * @return {Promise<void>}
    */
   async setValue(page, selector, value) {
@@ -207,15 +207,35 @@ class CommonPage {
   }
 
   /**
+   * Delete text from input
+   * @param page {Page} Browser tab
+   * @param selector {string} String to locate the element for the deletion
+   * @returns {Promise<void>}
+   */
+  async deleteTextFromInput(page, selector) {
+    await this.waitForSelectorAndClick(page, selector);
+    await page.click(selector, {clickCount: 3});
+    // Delete text from input before typing
+    await page.waitForTimeout(100);
+    await page.press(selector, 'Delete');
+  }
+
+  /**
    * To accept or dismiss a javascript dialog
    * @param page {Page} Browser tab
    * @param accept {boolean} True to accept the dialog, false to dismiss
+   * @param text {string} Text to set on dialog input
    * @return {Promise<void>}
    */
-  async dialogListener(page, accept = true) {
+  async dialogListener(page, accept = true, text = '') {
     page.once('dialog', (dialog) => {
-      if (accept) dialog.accept();
-      else dialog.dismiss();
+      if (accept && text === '') {
+        dialog.accept();
+      } else if (text !== '') {
+        dialog.accept(text);
+      } else {
+        dialog.dismiss();
+      }
     });
   }
 
@@ -381,15 +401,6 @@ class CommonPage {
     await page.mouse.down();
     await page.hover(selectorWhereToDrop);
     await page.mouse.up();
-  }
-
-  /**
-   * Uppercase the first character of the word
-   * @param word {string} String of the word
-   * @returns {string}
-   */
-  uppercaseFirstCharacter(word) {
-    return `${word[0].toUpperCase()}${word.slice(1)}`;
   }
 
   /**

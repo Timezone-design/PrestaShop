@@ -1,5 +1,6 @@
 .btn {
   font-weight: 600;
+  white-space: normal;
 
   &.btn-default {
     &,
@@ -55,7 +56,7 @@
   }
 
   &-primary {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     color: $btn-primary-color;

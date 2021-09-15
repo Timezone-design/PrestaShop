@@ -449,15 +449,7 @@ class LinkCore
             throw new \InvalidArgumentException('Invalid category parameter');
         }
 
-        // Selected filters is used by the module ps_facetedsearch
-        $selectedFilters = null === $selectedFilters ? '' : $selectedFilters;
-
-        if (empty($selectedFilters)) {
-            $rule = 'category_rule';
-        } else {
-            $rule = 'layered_rule';
-            $params['selected_filters'] = $selectedFilters;
-        }
+        $rule = 'category_rule';
 
         if (!$alias) {
             $category = $this->getCategoryObject($category, $idLang);
@@ -1532,6 +1524,20 @@ class LinkCore
                 $link = $context->link->getCatImageLink(
                     $params['name'],
                     $params['id'],
+                    $params['type'] = (isset($params['type']) ? $params['type'] : null)
+                );
+
+                break;
+            case 'manufacturerImage':
+                $link = $context->link->getManufacturerImageLink(
+                    (int) $params['id'],
+                    $params['type'] = (isset($params['type']) ? $params['type'] : null)
+                );
+
+                break;
+            case 'supplierImage':
+                $link = $context->link->getSupplierImageLink(
+                    (int) $params['id'],
                     $params['type'] = (isset($params['type']) ? $params['type'] : null)
                 );
 

@@ -1077,6 +1077,8 @@ class FrontControllerCore extends Controller
             'priority' => AbstractAssetManager::DEFAULT_PRIORITY,
             'inline' => false,
             'server' => 'local',
+            'version' => null,
+            'needRtl' => true,
         ];
         $params = array_merge($default_params, $params);
 
@@ -1085,7 +1087,8 @@ class FrontControllerCore extends Controller
                 . ($this->stylesheetManager->getFullPath($relativePath) ?? $relativePath);
             $params['server'] = 'remote';
         }
-        $this->stylesheetManager->register($id, $relativePath, $params['media'], $params['priority'], $params['inline'], $params['server']);
+
+        $this->stylesheetManager->register($id, $relativePath, $params['media'], $params['priority'], $params['inline'], $params['server'], $params['needRtl'], $params['version']);
     }
 
     public function unregisterStylesheet($id)
@@ -1105,6 +1108,7 @@ class FrontControllerCore extends Controller
             'inline' => false,
             'attributes' => null,
             'server' => 'local',
+            'version' => null,
         ];
         $params = array_merge($default_params, $params);
 
@@ -1113,7 +1117,7 @@ class FrontControllerCore extends Controller
                 . ($this->javascriptManager->getFullPath($relativePath) ?? $relativePath);
             $params['server'] = 'remote';
         }
-        $this->javascriptManager->register($id, $relativePath, $params['position'], $params['priority'], $params['inline'], $params['attributes'], $params['server']);
+        $this->javascriptManager->register($id, $relativePath, $params['position'], $params['priority'], $params['inline'], $params['attributes'], $params['server'], $params['version']);
     }
 
     public function unregisterJavascript($id)
@@ -1304,7 +1308,7 @@ class FrontControllerCore extends Controller
     /**
      * Sets template file for page content output.
      *
-     * @param string $default_template
+     * @param string $template
      */
     public function setTemplate($template, $params = [], $locale = null)
     {
@@ -1510,7 +1514,7 @@ class FrontControllerCore extends Controller
 
             $pages = [];
             $p = [
-                'address', 'addresses', 'authentication', 'cart', 'category', 'cms', 'contact',
+                'address', 'addresses', 'authentication', 'manufacturer', 'cart', 'category', 'cms', 'contact',
                 'discount', 'guest-tracking', 'history', 'identity', 'index', 'my-account',
                 'order-confirmation', 'order-detail', 'order-follow', 'order', 'order-return',
                 'order-slip', 'pagenotfound', 'password', 'pdf-invoice', 'pdf-order-return', 'pdf-order-slip',
@@ -1520,6 +1524,7 @@ class FrontControllerCore extends Controller
                 $index = str_replace('-', '_', $page_name);
                 $pages[$index] = $this->context->link->getPageLink($page_name, $this->ssl);
             }
+            $pages['brands'] = $pages['manufacturer'];
             $pages['register'] = $this->context->link->getPageLink('authentication', true, null, ['create_account' => '1']);
             $pages['order_login'] = $this->context->link->getPageLink('order', true, null, ['login' => '1']);
             $urls['pages'] = $pages;
@@ -1741,6 +1746,14 @@ class FrontControllerCore extends Controller
         ];
     }
 
+    /**
+     * Generate the canonical URL of the current page
+     *
+     * Mainly used for ProductController and CategoryController
+     * but can be implemented by other classes inheriting from FrontController
+     *
+     * @return string|void
+     */
     public function getCanonicalURL()
     {
     }

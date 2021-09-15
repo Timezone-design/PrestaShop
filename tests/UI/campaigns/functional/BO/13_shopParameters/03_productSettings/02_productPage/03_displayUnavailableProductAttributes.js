@@ -31,8 +31,8 @@ const productData = new ProductFaker(
   {
     type: 'Standard product',
     combinations: {
-      Color: ['White'],
-      Size: ['S'],
+      color: ['White'],
+      size: ['S'],
     },
     quantity: 0,
   },
@@ -95,7 +95,7 @@ describe('Display unavailable product attributes on the product page', async () 
     {args: {action: 'enable', enable: true}},
   ];
 
-  tests.forEach((test) => {
+  tests.forEach((test, index) => {
     it(`should ${test.args.action} Display unavailable product attributes on the product page`, async function () {
       await testContext.addContextItem(
         this,
@@ -113,12 +113,7 @@ describe('Display unavailable product attributes on the product page', async () 
     });
 
     it('should check the unavailable product attributes in FO product page', async function () {
-      await testContext.addContextItem(
-        this,
-        'testIdentifier',
-        `checkUnavailableAttribute${productSettingsPage.uppercaseFirstCharacter(test.args.action)}`,
-        baseContext,
-      );
+      await testContext.addContextItem(this, 'testIdentifier', `checkUnavailableAttribute${index}`, baseContext);
 
       page = await productSettingsPage.viewMyShop(page);
 
@@ -129,14 +124,14 @@ describe('Display unavailable product attributes on the product page', async () 
 
       const sizeIsVisible = await productPage.isUnavailableProductSizeDisplayed(
         page,
-        productData.combinations.Size[0],
+        productData.combinations.size[0],
       );
 
       await expect(sizeIsVisible).to.be.equal(test.args.enable);
 
       const colorIsVisible = await productPage.isUnavailableProductColorDisplayed(
         page,
-        productData.combinations.Color[0],
+        productData.combinations.color[0],
       );
 
       await expect(colorIsVisible).to.be.equal(test.args.enable);

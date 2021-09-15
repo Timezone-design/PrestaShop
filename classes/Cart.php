@@ -735,9 +735,10 @@ class CartCore extends ObjectModel
 
         if (Combination::isFeatureActive()) {
             $sql->select('
-                product_attribute_shop.`price` AS price_attribute, product_attribute_shop.`ecotax` AS ecotax_attr,
+                product_attribute_shop.`price` AS price_attribute,
+                product_attribute_shop.`ecotax` AS ecotax_attr,
                 IF (IFNULL(pa.`reference`, \'\') = \'\', p.`reference`, pa.`reference`) AS reference,
-                (p.`weight`+ pa.`weight`) weight_attribute,
+                (p.`weight`+ IFNULL(product_attribute_shop.`weight`, pa.`weight`)) weight_attribute,
                 IF (IFNULL(pa.`ean13`, \'\') = \'\', p.`ean13`, pa.`ean13`) AS ean13,
                 IF (IFNULL(pa.`isbn`, \'\') = \'\', p.`isbn`, pa.`isbn`) AS isbn,
                 IF (IFNULL(pa.`upc`, \'\') = \'\', p.`upc`, pa.`upc`) AS upc,
@@ -1521,7 +1522,7 @@ class CartCore extends ObjectModel
 
         /* If we have a product combination, the minimal quantity is set with the one of this combination */
         if (!empty($id_product_attribute)) {
-            $minimal_quantity = (int) Attribute::getAttributeMinimalQty($id_product_attribute);
+            $minimal_quantity = (int) ProductAttribute::getAttributeMinimalQty($id_product_attribute);
         } else {
             $minimal_quantity = (int) $product->minimal_quantity;
         }
@@ -1550,8 +1551,6 @@ class CartCore extends ObjectModel
             'auto_add_cart_rule' => $auto_add_cart_rule,
         ];
 
-        /* @deprecated deprecated since 1.6.1.1 */
-        // Hook::exec('actionBeforeCartUpdateQty', $data);
         Hook::exec('actionCartUpdateQuantityBefore', $data);
 
         if ((int) $quantity <= 0) {
@@ -4223,14 +4222,25 @@ class CartCore extends ObjectModel
      */
     public function hasRealProducts()
     {
-        return (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
-            'SELECT 1 FROM ' . _DB_PREFIX_ . 'cart_product cp ' .
-            'INNER JOIN ' . _DB_PREFIX_ . 'product p
-                ON (p.is_virtual = 0 AND p.id_product = cp.id_product) ' .
-            'INNER JOIN ' . _DB_PREFIX_ . 'product_shop ps
-                ON (ps.id_shop = cp.id_shop AND ps.id_product = p.id_product) ' .
-            'WHERE cp.id_cart=' . (int) $this->id
-        );
+        // Check for non-virtual products which are not packs
+        $sql = 'SELECT 1 FROM %scart_product cp
+            INNER JOIN %sproduct p ON (p.id_product = cp.id_product AND cache_is_pack = 0 and p.is_virtual = 0)
+            INNER JOIN %sproduct_shop ps ON (ps.id_shop = cp.id_shop AND ps.id_product = p.id_product)
+            WHERE cp.id_cart=%d';
+        $sql = sprintf($sql, _DB_PREFIX_, _DB_PREFIX_, _DB_PREFIX_, $this->id);
+        if ((bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($sql)) {
+            return true;
+        }
+
+        // Check for non-virtual products which are in packs
+        $sql = 'SELECT 1 FROM %scart_product cp
+            INNER JOIN %spack pa ON (pa.id_product_pack = cp.id_product)
+            INNER JOIN %sproduct p ON (p.id_product = pa.id_product_item AND p.is_virtual = 0)
+            INNER JOIN %sproduct_shop ps ON (ps.id_shop = cp.id_shop AND ps.id_product = p.id_product)
+            WHERE cp.id_cart=%d';
+        $sql = sprintf($sql, _DB_PREFIX_, _DB_PREFIX_, _DB_PREFIX_, _DB_PREFIX_, $this->id);
+
+        return (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($sql);
     }
 
     /**

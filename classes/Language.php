@@ -57,7 +57,7 @@ class LanguageCore extends ObjectModel implements LanguageInterface
     private const TRANSLATION_PACK_CACHE_DIR = _PS_TRANSLATIONS_DIR_;
 
     /** Path to the symfony translations directory */
-    private const SF_TRANSLATIONS_DIR = _PS_ROOT_DIR_ . '/app/Resources/translations';
+    private const SF_TRANSLATIONS_DIR = _PS_ROOT_DIR_ . '/translations';
 
     /** @var int */
     public $id;
@@ -1548,7 +1548,10 @@ class LanguageCore extends ObjectModel implements LanguageInterface
             $rows = Db::getInstance()->executeS('SHOW TABLES LIKE \'' . str_replace('_', '\\_', _DB_PREFIX_) . '%\_lang\' ');
             if (!empty($rows)) {
                 // get all values
-                $tableNames = array_map('reset', $rows);
+                $tableNames = [];
+                foreach ($rows as $row) {
+                    $tableNames[] = reset($row);
+                }
                 static::updateMultilangTables($lang, $tableNames);
             }
         }
@@ -1600,7 +1603,7 @@ class LanguageCore extends ObjectModel implements LanguageInterface
         }
 
         // Fetch all countries from Intl in specified locale
-        $langCountries = (new self())->getCountries($lang->locale);
+        $langCountries = (new self())->getCountries($lang->getLocale());
         foreach ($translatableCountries as $country) {
             $isoCode = strtolower($country['iso_code']);
             if (empty($langCountries[$isoCode])) {
@@ -1630,7 +1633,7 @@ class LanguageCore extends ObjectModel implements LanguageInterface
 
         try {
             $classObject = (new DataLangFactory(_DB_PREFIX_, $translator))
-                ->buildFromClassName($className, $lang->locale);
+                ->buildFromClassName($className, $lang->getLocale());
         } catch (DataLangClassNameNotFoundException $e) {
             return;
         }
@@ -1690,17 +1693,14 @@ class LanguageCore extends ObjectModel implements LanguageInterface
 
         $themesDir = _PS_ROOT_DIR_ . DIRECTORY_SEPARATOR . 'themes';
 
-        $processor = new RtlStylesheetProcessor(
+        return new RtlStylesheetProcessor(
             $adminDir,
             $themesDir,
             [
-                _PS_MODULE_DIR_ . 'gamification',
                 _PS_MODULE_DIR_ . 'welcome',
                 _PS_MODULE_DIR_ . 'cronjobs',
             ]
         );
-
-        return $processor;
     }
 
     /**

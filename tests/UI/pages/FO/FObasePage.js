@@ -239,7 +239,7 @@ class FOBasePage extends CommonPage {
    */
   async goToSubCategory(page, categoryID, subCategoryID) {
     await page.hover(this.categoryMenu(categoryID));
-    await this.waitForSelectorAndClick(page, this.categoryMenu(subCategoryID));
+    await this.clickAndWaitForNavigation(page, this.categoryMenu(subCategoryID));
   }
 
   /**
@@ -257,7 +257,7 @@ class FOBasePage extends CommonPage {
    * @returns {Promise<number>}
    */
   async getCartNotificationsNumber(page) {
-    return this.getNumberFromText(page, this.cartProductsCount);
+    return this.getNumberFromText(page, this.cartProductsCount, 2000);
   }
 
   /**

@@ -66,18 +66,34 @@ final class ProductFormDataProvider implements FormDataProviderInterface
     private $mostUsedTaxRulesGroupId;
 
     /**
+     * @var int
+     */
+    private $defaultCategoryId;
+
+    /**
+     * @var int
+     */
+    private $contextLangId;
+
+    /**
      * @param CommandBusInterface $queryBus
      * @param bool $defaultProductActivation
      * @param int $mostUsedTaxRulesGroupId
+     * @param int $defaultCategoryId
+     * @param int $contextLangId
      */
     public function __construct(
         CommandBusInterface $queryBus,
         bool $defaultProductActivation,
-        int $mostUsedTaxRulesGroupId
+        int $mostUsedTaxRulesGroupId,
+        int $defaultCategoryId,
+        int $contextLangId
     ) {
         $this->queryBus = $queryBus;
         $this->defaultProductActivation = $defaultProductActivation;
         $this->mostUsedTaxRulesGroupId = $mostUsedTaxRulesGroupId;
+        $this->defaultCategoryId = $defaultCategoryId;
+        $this->contextLangId = $contextLangId;
     }
 
     /**
@@ -92,7 +108,8 @@ final class ProductFormDataProvider implements FormDataProviderInterface
         $productData = [
             'id' => $productId,
             'header' => $this->extractHeaderData($productForEditing),
-            'basic' => $this->extractBasicData($productForEditing),
+            'description' => $this->extractDescriptionData($productForEditing),
+            'specifications' => $this->extractSpecificationsData($productForEditing),
             'stock' => $this->extractStockData($productForEditing),
             'pricing' => $this->extractPricingData($productForEditing),
             'seo' => $this->extractSEOData($productForEditing),
@@ -115,7 +132,15 @@ final class ProductFormDataProvider implements FormDataProviderInterface
             'header' => [
                 'type' => ProductType::TYPE_STANDARD,
             ],
-            'basic' => [
+            'description' => [
+                'categories' => [
+                    'product_categories' => [
+                        $this->defaultCategoryId => [
+                            'is_associated' => true,
+                            'is_default' => true,
+                        ],
+                    ],
+                ],
                 'manufacturer' => NoManufacturerId::NO_MANUFACTURER_ID,
             ],
             'stock' => [
@@ -183,6 +208,27 @@ final class ProductFormDataProvider implements FormDataProviderInterface
     /**
      * @param ProductForEditing $productForEditing
      *
+     * @return array
+     */
+    private function extractCategoriesData(ProductForEditing $productForEditing): array
+    {
+        $categoriesInformation = $productForEditing->getCategoriesInformation();
+        $categories = [];
+        foreach ($categoriesInformation->getCategoryIds() as $categoryId) {
+            $categories[$categoryId] = [
+                'is_associated' => true,
+                'is_default' => $categoryId === $categoriesInformation->getDefaultCategoryId(),
+            ];
+        }
+
+        return [
+            'product_categories' => $categories,
+        ];
+    }
+
+    /**
+     * @param ProductForEditing $productForEditing
+     *
      * @return array<string, mixed>
      */
     private function extractVirtualProductFileData(ProductForEditing $productForEditing): array
@@ -218,6 +264,7 @@ final class ProductFormDataProvider implements FormDataProviderInterface
         return [
             'type' => $productForEditing->getType(),
             'name' => $productForEditing->getBasicInformation()->getLocalizedNames(),
+            'cover_thumbnail' => $productForEditing->getCoverThumbnailUrl(),
         ];
     }
 
@@ -226,13 +273,36 @@ final class ProductFormDataProvider implements FormDataProviderInterface
      *
      * @return array<string, mixed>
      */
-    private function extractBasicData(ProductForEditing $productForEditing): array
+    private function extractDescriptionData(ProductForEditing $productForEditing): array
     {
         return [
             'description' => $productForEditing->getBasicInformation()->getLocalizedDescriptions(),
             'description_short' => $productForEditing->getBasicInformation()->getLocalizedShortDescriptions(),
-            'features' => $this->extractFeatureValues($productForEditing->getProductId()),
+            'categories' => $this->extractCategoriesData($productForEditing),
             'manufacturer' => $productForEditing->getOptions()->getManufacturerId(),
+        ];
+    }
+
+    /**
+     * @param ProductForEditing $productForEditing
+     *
+     * @return array<string, mixed>
+     */
+    private function extractSpecificationsData(ProductForEditing $productForEditing): array
+    {
+        $details = $productForEditing->getDetails();
+
+        return [
+            'references' => [
+                'mpn' => $details->getMpn(),
+                'upc' => $details->getUpc(),
+                'ean_13' => $details->getEan13(),
+                'isbn' => $details->getIsbn(),
+                'reference' => $details->getReference(),
+            ],
+            'features' => $this->extractFeatureValues($productForEditing->getProductId()),
+            'attachments' => $this->extractAttachmentsData($productForEditing),
+            'customizations' => $this->extractCustomizationsData($productForEditing),
         ];
     }
 
@@ -336,21 +406,33 @@ final class ProductFormDataProvider implements FormDataProviderInterface
             'meta_description' => $seoOptions->getLocalizedMetaDescriptions(),
             'link_rewrite' => $seoOptions->getLocalizedLinkRewrites(),
             'redirect_option' => $this->extractRedirectOptionData($productForEditing),
+            'tags' => $this->presentTags($productForEditing->getBasicInformation()->getLocalizedTags()),
         ];
     }
 
     /**
      * @param ProductForEditing $productForEditing
      *
-     * @return array<string, int|string>
+     * @return array{type: string, target: null|array}
      */
     private function extractRedirectOptionData(ProductForEditing $productForEditing): array
     {
         $seoOptions = $productForEditing->getProductSeoOptions();
 
+        // It is important to return null when nothing is selected this way the transformer and therefore
+        // the form field have no value to try and display
+        $redirectTarget = null;
+        if (null !== $seoOptions->getRedirectTarget()) {
+            $redirectTarget = [
+                'id' => $seoOptions->getRedirectTarget()->getId(),
+                'name' => $seoOptions->getRedirectTarget()->getName(),
+                'image' => $seoOptions->getRedirectTarget()->getImage(),
+            ];
+        }
+
         return [
             'type' => $seoOptions->getRedirectType(),
-            'target' => $seoOptions->getRedirectTargetId(),
+            'target' => $redirectTarget,
         ];
     }
 
@@ -388,7 +470,6 @@ final class ProductFormDataProvider implements FormDataProviderInterface
     private function extractOptionsData(ProductForEditing $productForEditing): array
     {
         $options = $productForEditing->getOptions();
-        $details = $productForEditing->getDetails();
 
         return [
             'visibility' => [
@@ -397,19 +478,33 @@ final class ProductFormDataProvider implements FormDataProviderInterface
                 'show_price' => $options->showPrice(),
                 'online_only' => $options->isOnlineOnly(),
             ],
-            'tags' => $this->presentTags($productForEditing->getBasicInformation()->getLocalizedTags()),
             'show_condition' => $options->showCondition(),
             'condition' => $options->getCondition(),
-            'references' => [
-                'mpn' => $details->getMpn(),
-                'upc' => $details->getUpc(),
-                'ean_13' => $details->getEan13(),
-                'isbn' => $details->getIsbn(),
-                'reference' => $details->getReference(),
-            ],
-            'customizations' => $this->extractCustomizationsData($productForEditing),
             'suppliers' => $this->extractSuppliersData($productForEditing),
         ];
+    }
+
+    /**
+     * @param ProductForEditing $productForEditing
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function extractAttachmentsData(ProductForEditing $productForEditing): array
+    {
+        $productAttachments = $productForEditing->getAssociatedAttachments();
+
+        $attachmentsData = [];
+        foreach ($productAttachments as $productAttachment) {
+            $localizedNames = $productAttachment->getLocalizedNames();
+            $attachmentsData['attached_files'][] = [
+                'attachment_id' => $productAttachment->getAttachmentId(),
+                'name' => $localizedNames[$this->contextLangId] ?? reset($localizedNames),
+                'file_name' => $productAttachment->getFilename(),
+                'mime_type' => $productAttachment->getMimeType(),
+            ];
+        }
+
+        return $attachmentsData;
     }
 
     /**

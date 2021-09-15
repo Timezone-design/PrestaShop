@@ -63,7 +63,7 @@ class ImageManagerCore
             return '';
         }
 
-        if (file_exists(_PS_TMP_IMG_DIR_ . $cacheImage) && $regenerate) {
+        if ($regenerate && file_exists(_PS_TMP_IMG_DIR_ . $cacheImage)) {
             @unlink(_PS_TMP_IMG_DIR_ . $cacheImage);
         }
 
@@ -107,7 +107,8 @@ class ImageManagerCore
     {
         $cacheParam = $disableCache ? '?time=' . time() : '';
 
-        if (Context::getContext()->controller->controller_type == 'admin') {
+        $controller = Context::getContext()->controller;
+        if (isset($controller->controller_type) && $controller->controller_type == 'admin') {
             return __PS_BASE_URI__ . 'img/tmp/' . $cacheImage . $cacheParam;
         }
 

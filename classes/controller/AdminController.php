@@ -250,6 +250,9 @@ class AdminControllerCore extends Controller
     /** @var bool */
     private $allowAnonymous = false;
 
+    /** @var string */
+    public $override_folder;
+
     /** @var int DELETE access level */
     const LEVEL_DELETE = 4;
 
@@ -412,9 +415,6 @@ class AdminControllerCore extends Controller
     /** @var array */
     public $_conf;
 
-    /** @var float @var */
-    public $timer_start;
-
     /** @var bool */
     protected static $is_prestashop_up = true;
 
@@ -423,9 +423,6 @@ class AdminControllerCore extends Controller
 
     public function __construct($forceControllerName = '', $default_theme_name = 'default')
     {
-        global $timer_start;
-        $this->timer_start = $timer_start;
-
         $this->controller_type = 'admin';
         $this->controller_name = !empty($forceControllerName) ? $forceControllerName : get_class($this);
         if (strpos($this->controller_name, 'ControllerOverride')) {
@@ -1866,7 +1863,7 @@ class AdminControllerCore extends Controller
         }
         $this->context->smarty->assign('meta_title', $this->meta_title);
 
-        $template_dirs = $this->context->smarty->getTemplateDir();
+        $template_dirs = $this->context->smarty->getTemplateDir() ?: [];
 
         // Check if header/footer have been overridden
         $dir = $this->context->smarty->getTemplateDir(0) . 'controllers' . DIRECTORY_SEPARATOR . trim($this->override_folder, '\\/') . DIRECTORY_SEPARATOR;
@@ -2307,7 +2304,6 @@ class AdminControllerCore extends Controller
 
         $this->context->smarty->assign([
             'ps_version' => _PS_VERSION_,
-            'timer_start' => $this->timer_start,
             'iso_is_fr' => strtoupper($this->context->language->iso_code) == 'FR',
             'modals' => $this->renderModal(),
         ]);
@@ -2705,16 +2701,6 @@ class AdminControllerCore extends Controller
                 $this->addJS(_PS_JS_DIR_ . 'admin/notifications.js');
             }
 
-            if (defined('_PS_HOST_MODE_') && _PS_HOST_MODE_) {
-                $this->addJS('https://cdn.statuspage.io/se-v2.js');
-
-                Media::addJsDefL('status_operational', $this->trans('Operational'));
-                Media::addJsDefL('status_degraded_performance', $this->trans('Degraded Performance'));
-                Media::addJsDefL('status_partial_outage', $this->trans('Partial Outage'));
-                Media::addJsDefL('status_major_outage', $this->trans('Major Outage'));
-                Media::addJsDef(['host_cluster' => defined('_PS_HOST_CLUSTER_') ? _PS_HOST_CLUSTER_ : 'fr1']);
-            }
-
             // Specific Admin Theme
             $this->addCSS(__PS_BASE_URI__ . $this->admin_webpath . '/themes/' . $this->bo_theme . '/css/overrides.css', 'all', PHP_INT_MAX);
         }
@@ -2761,9 +2747,9 @@ class AdminControllerCore extends Controller
     }
 
     /**
-     * Non-static method which uses AdminController::translate().
+     * Translates a wording
      *
-     * @deprecated use Context::getContext()->getTranslator()->trans($id, $parameters, $domain, $locale); instead
+     * @deprecated Use $this->trans instead
      *
      * @param string $string Term or expression in english
      * @param string|null $class Name of the class
@@ -2774,19 +2760,9 @@ class AdminControllerCore extends Controller
      */
     protected function l($string, $class = null, $addslashes = false, $htmlentities = true)
     {
-        $translated = $this->translator->trans($string);
-        if ($translated !== $string) {
-            return $translated;
-        }
+        @trigger_error(__FUNCTION__ . 'is deprecated. Use AdminController::trans instead.', E_USER_DEPRECATED);
 
-        if ($class === null || $class == 'AdminTab') {
-            $class = substr(get_class($this), 0, -10);
-        } elseif (strtolower(substr($class, -10)) == 'controller') {
-            /* classname has changed, from AdminXXX to AdminXXXController, so we remove 10 characters and we keep same keys */
-            $class = substr($class, 0, -10);
-        }
-
-        return Translate::getAdminTranslation($string, $class, $addslashes, $htmlentities);
+        return $this->translator->trans($string);
     }
 
     /**
@@ -3142,7 +3118,7 @@ class AdminControllerCore extends Controller
     }
 
     /**
-     * Get the current objects' list form the database.
+     * Get the current objects' list from the database.
      *
      * @param int $id_lang Language used for display
      * @param string|null $order_by ORDER BY clause
@@ -3847,7 +3823,7 @@ class AdminControllerCore extends Controller
     {
         /* Classical fields */
         foreach ($_POST as $key => $value) {
-            if (array_key_exists($key, $object) && $key != 'id_' . $table) {
+            if (array_key_exists($key, get_object_vars($object)) && $key != 'id_' . $table) {
                 /* Do not take care of password field if empty */
                 if ($key == 'passwd' && Tools::getValue('id_' . $table) && empty($value)) {
                     continue;
@@ -4208,7 +4184,7 @@ class AdminControllerCore extends Controller
                 $this->errors[] = $this->trans('An error occurred while updating the status.', [], 'Admin.Notifications.Error');
             }
         } else {
-            $this->errors[] = $this->trans('You need to select at least one item to use the bulk action.', [], 'Admin.Notifications.Error');
+            $this->errors[] = $this->trans('You must select at least one item to perform a bulk action.', [], 'Admin.Notifications.Error');
         }
 
         return $result;

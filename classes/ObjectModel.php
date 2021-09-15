@@ -549,7 +549,7 @@ abstract class ObjectModelCore implements \PrestaShop\PrestaShop\Core\Foundation
     public function add($auto_date = true, $null_values = false)
     {
         if (isset($this->id) && !$this->force_id) {
-            unset($this->id);
+            $this->id = null;
         }
 
         // @hook actionObject<ObjectClassName>AddBefore
@@ -579,8 +579,10 @@ abstract class ObjectModelCore implements \PrestaShop\PrestaShop\Core\Foundation
             return false;
         }
 
-        // Get object id in database
-        $this->id = Db::getInstance()->Insert_ID();
+        // Get object id in database if force_id is not true
+        if (empty($this->id)) {
+            $this->id = Db::getInstance()->Insert_ID();
+        }
 
         // Database insertion for multishop fields related to the object
         if (Shop::isTableAssociated($this->def['table'])) {
@@ -1239,6 +1241,11 @@ abstract class ObjectModelCore implements \PrestaShop\PrestaShop\Core\Foundation
         }
 
         if ($_FIELDS === null && file_exists(_PS_TRANSLATIONS_DIR_ . $context->language->iso_code . '/fields.php')) {
+            @trigger_error(
+                 'Translating ObjectModel fields using fields.php is deprecated since version 8.0.0.',
+                E_USER_DEPRECATED
+            );
+
             include_once _PS_TRANSLATIONS_DIR_ . $context->language->iso_code . '/fields.php';
         }
 
@@ -1486,7 +1493,7 @@ abstract class ObjectModelCore implements \PrestaShop\PrestaShop\Core\Foundation
             $value = Tools::getValue($field, null);
 
             if ($value === null) {
-                $errors[$field] = $this->trans('The field %s is required.', [self::displayFieldName($field, get_class($this), $htmlentities)], 'Admin.Notifications.Error');
+                $errors[$field] = $this->trans('The %s field is required.', [self::displayFieldName($field, get_class($this), $htmlentities)], 'Admin.Notifications.Error');
             }
         }
 
@@ -1890,19 +1897,36 @@ abstract class ObjectModelCore implements \PrestaShop\PrestaShop\Core\Foundation
      * Checks if an object exists in database.
      *
      * @param int $id_entity
-     * @param string $table
+     * @param string $table Deprecated since 1.7.8.x
      *
      * @return bool
      */
-    public static function existsInDatabase($id_entity, $table)
+    public static function existsInDatabase($id_entity, $table = null)
     {
+        if ($table !== null) {
+            Tools::displayParameterAsDeprecated('table');
+        }
+
+        if ($table !== null && static::class == 'ObjectModel') {
+            $primary = 'id_' . bqSQL($table);
+        } else {
+            $object_def = static::$definition;
+
+            if (empty($object_def['table']) || empty($object_def['primary'])) {
+                return false;
+            }
+
+            $table = $object_def['table'];
+            $primary = $object_def['primary'];
+        }
+
         $row = Db::getInstance()->getRow(
-            '
-			SELECT `id_' . bqSQL($table) . '` as id
-			FROM `' . _DB_PREFIX_ . bqSQL($table) . '` e
-			WHERE e.`id_' . bqSQL($table) . '` = ' . (int) $id_entity,
-            false
-        );
+                (new DbQuery())
+                    ->select('e.`' . $primary . '` as id')
+                    ->from($table, 'e')
+                    ->where('e.`' . $primary . '` = ' . (int) $id_entity),
+                false
+            );
 
         return isset($row['id']);
     }

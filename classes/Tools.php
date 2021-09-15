@@ -319,7 +319,7 @@ class ToolsCore
             $host = htmlspecialchars($host, ENT_COMPAT, 'UTF-8');
         }
         if ($http) {
-            $host = (Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://') . $host;
+            $host = static::getProtocol((bool) Configuration::get('PS_SSL_ENABLED')) . $host;
         }
 
         return $host;
@@ -365,7 +365,7 @@ class ToolsCore
             $domain = htmlspecialchars($domain, ENT_COMPAT, 'UTF-8');
         }
         if ($http) {
-            $domain = (Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://') . $domain;
+            $domain = static::getProtocol((bool) Configuration::get('PS_SSL_ENABLED')) . $domain;
         }
 
         return $domain;
@@ -1080,8 +1080,16 @@ class ToolsCore
         return html_entity_decode((string) $string, ENT_QUOTES, 'utf-8');
     }
 
+    /**
+     * @deprecated Since 1.7.9.0.
+     */
     public static function safePostVars()
     {
+        @trigger_error(
+            'Tools::safePostVars() is deprecated since version 1.7.9.0.',
+            E_USER_DEPRECATED
+        );
+
         if (!isset($_POST) || !is_array($_POST)) {
             $_POST = [];
         } else {
@@ -2915,7 +2923,7 @@ FileETag none
         if (file_exists($sitemap_file) && filesize($sitemap_file)) {
             fwrite($write_fd, "# Sitemap\n");
             $sitemap_filename = basename($sitemap_file);
-            fwrite($write_fd, 'Sitemap: ' . (Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://') . $_SERVER['SERVER_NAME']
+            fwrite($write_fd, 'Sitemap: ' . static::getProtocol((bool) Configuration::get('PS_SSL_ENABLED')) . $_SERVER['SERVER_NAME']
                 . __PS_BASE_URI__ . $sitemap_filename . PHP_EOL);
         }
 
@@ -3063,12 +3071,13 @@ exit;
     public static function getDirectoriesWithGlob($path)
     {
         $directoryList = glob($path . '/*', GLOB_ONLYDIR | GLOB_NOSORT);
-        array_walk(
-            $directoryList,
-            function (&$absolutePath, $key) {
-                $absolutePath = substr($absolutePath, strrpos($absolutePath, '/') + 1);
-            }
-        );
+        if ($directoryList === false) {
+            return [];
+        }
+
+        $directoryList = array_map(function ($path) {
+            return substr($path, strrpos($path, '/') + 1);
+        }, $directoryList);
 
         return $directoryList;
     }
@@ -3118,7 +3127,7 @@ exit;
      * Use json_encode instead
      * Convert an array to json string
      *
-     * @param array $data
+     * @param mixed $data
      * @param int $depth
      * @param int $options
      *
@@ -3965,33 +3974,12 @@ exit;
                 $post_data .= '&method=listing&action=native';
 
                 break;
-            case 'partner':
-                $post_data .= '&method=listing&action=partner';
-
-                break;
-            case 'service':
-                $post_data .= '&method=listing&action=service';
-
-                break;
-            case 'native_all':
-                $post_data .= '&method=listing&action=native&iso_code=all';
-
-                break;
             case 'must-have':
                 $post_data .= '&method=listing&action=must-have';
 
                 break;
-            case 'must-have-themes':
-                $post_data .= '&method=listing&action=must-have-themes';
-
-                break;
             case 'customer':
                 $post_data .= '&method=listing&action=customer&username=' . urlencode(trim(Context::getContext()->cookie->username_addons))
-                    . '&password=' . urlencode(trim(Context::getContext()->cookie->password_addons));
-
-                break;
-            case 'customer_themes':
-                $post_data .= '&method=listing&action=customer-themes&username=' . urlencode(trim(Context::getContext()->cookie->username_addons))
                     . '&password=' . urlencode(trim(Context::getContext()->cookie->password_addons));
 
                 break;
@@ -4008,13 +3996,6 @@ exit;
                 if (isset($params['username_addons'], $params['password_addons'])) {
                     $post_data .= '&username=' . urlencode($params['username_addons']) . '&password=' . urlencode($params['password_addons']);
                 }
-
-                break;
-            case 'hosted_module':
-                $post_data .= '&method=module&id_module=' . urlencode((int) $params['id_module']) . '&username=' . urlencode($params['hosted_email'])
-                    . '&password=' . urlencode($params['password_addons'])
-                    . '&shop_url=' . urlencode(isset($params['shop_url']) ? $params['shop_url'] : Tools::getShopDomain())
-                    . '&mail=' . urlencode(isset($params['email']) ? $params['email'] : Configuration::get('PS_SHOP_EMAIL'));
 
                 break;
             case 'install-modules':

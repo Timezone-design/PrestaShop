@@ -24,6 +24,7 @@
  */
 
 const combinationListId = '#combination_list';
+const attachmentsBlockId = '#product_specifications_attachments';
 
 export default {
   productForm: 'form[name=product]',
@@ -69,7 +70,8 @@ export default {
     combinationsTableBody: `${combinationListId} table tbody`,
     combinationIdInputsSelector: '.combination-id-input',
     isDefaultInputsSelector: '.combination-is-default-input',
-    removeCombinationSelector: '.remove-combination-item',
+    deleteCombinationSelector: '.delete-combination-item',
+    combinationName: 'form .card-header span',
     paginationContainer: '#combinations-pagination',
     loadingSpinner: '#productCombinationsLoading',
     quantityInputWrapper: '.combination-quantity',
@@ -83,6 +85,9 @@ export default {
       tokenKey: 'combination_item[_token]',
     },
     editionForm: 'form[name="combination_form"]',
+    editionFormInputs:
+      // eslint-disable-next-line
+      'form[name="combination_form"] input, form[name="combination_form"] textarea, form[name="combination_form"] select',
     editCombinationButtons: '.edit-combination-item',
     tableRow: {
       combinationImg: '.combination-image',
@@ -145,6 +150,9 @@ export default {
     redirectOption: {
       typeInput: '#product_seo_redirect_option_type',
       targetInput: '#product_seo_redirect_option_target',
+      groupSelector: '.form-group',
+      labelSelector: 'label',
+      helpSelector: 'small.form-text',
     },
   },
   jsTabs: '.js-tabs',
@@ -157,5 +165,42 @@ export default {
   footer: {
     previewUrlButton: '.preview-url-button',
     deleteProductButton: '.delete-product-button',
+  },
+  categories: {
+    categoriesContainer: '.js-categories-container',
+    categoryTree: '.js-categories-tree',
+    treeElement: '.category-tree-element',
+    treeElementInputs: '.category-tree-inputs',
+    checkboxInput: '[type=checkbox]',
+    checkedCheckboxInputs: '[type=checkbox]:checked',
+    checkboxName: (categoryId) => `product[description][categories][product_categories][${categoryId}][is_associated]`,
+    materialCheckbox: '.md-checkbox',
+    radioInput: '[type=radio]',
+    defaultRadioInput: '[type=radio]:checked',
+    radioName: (categoryId) => `product[description][categories][product_categories][${categoryId}][is_default]`,
+    tagsContainer: '#categories-tags-container',
+    searchInput: '#ps-select-product-category',
+    fieldset: '.tree-fieldset',
+    loader: '.categories-tree-loader',
+    childrenList: '.children-list',
+    everyItems: '.less, .more',
+    expandAllButton: '#categories-tree-expand',
+    reduceAllButton: '#categories-tree-reduce',
+  },
+  modules: {
+    previewContainer: '.module-render-container.all-modules',
+    previewButton: '.modules-list-button',
+    selectorContainer: '.module-selection',
+    moduleSelector: '.modules-list-select',
+    selectorPreviews: '.module-selection .module-render-container',
+    selectorPreview: (moduleId) => `.module-selection .module-render-container.${moduleId}`,
+    contentContainer: '.module-contents',
+    moduleContents: '.module-contents .module-render-container',
+    moduleContent: (moduleId) => `.module-contents .module-render-container.${moduleId}`,
+  },
+  attachments: {
+    attachmentsContainer: attachmentsBlockId,
+    searchAttributeInput: `${attachmentsBlockId}_attached_files`,
+    addAttachmentBtn: '.add-attachment',
   },
 };

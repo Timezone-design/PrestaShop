@@ -36,6 +36,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use PrestaShop\Decimal\DecimalNumber;
 use PrestaShop\PrestaShop\Core\CommandBus\CommandBusInterface;
+use PrestaShop\PrestaShop\Core\Domain\Attachment\QueryResult\AttachmentInformation;
 use PrestaShop\PrestaShop\Core\Domain\Manufacturer\ValueObject\NoManufacturerId;
 use PrestaShop\PrestaShop\Core\Domain\Product\Customization\Query\GetProductCustomizationFields;
 use PrestaShop\PrestaShop\Core\Domain\Product\Customization\QueryResult\CustomizationField;
@@ -51,6 +52,7 @@ use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductDetails;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductForEditing;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductOptions;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductPricesInformation;
+use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductRedirectTarget;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductSeoOptions;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductShippingInformation;
 use PrestaShop\PrestaShop\Core\Domain\Product\QueryResult\ProductStockInformation;
@@ -74,9 +76,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 class ProductFormDataProviderTest extends TestCase
 {
     private const PRODUCT_ID = 42;
+    private const HOME_CATEGORY_ID = 49;
     private const DEFAULT_CATEGORY_ID = 51;
     private const DEFAULT_VIRTUAL_PRODUCT_FILE_ID = 69;
     private const DEFAULT_QUANTITY = 12;
+    private const COVER_URL = 'http://localhost/cover.jpg';
+    private const CONTEXT_LANG_ID = 1;
 
     public function testGetDefaultData()
     {
@@ -88,7 +93,15 @@ class ProductFormDataProviderTest extends TestCase
             'header' => [
                 'type' => ProductType::TYPE_STANDARD,
             ],
-            'basic' => [
+            'description' => [
+                'categories' => [
+                    'product_categories' => [
+                        self::HOME_CATEGORY_ID => [
+                            'is_associated' => true,
+                            'is_default' => true,
+                        ],
+                    ],
+                ],
                 'manufacturer' => NoManufacturerId::NO_MANUFACTURER_ID,
             ],
             'stock' => [
@@ -149,7 +162,15 @@ class ProductFormDataProviderTest extends TestCase
             'header' => [
                 'type' => ProductType::TYPE_STANDARD,
             ],
-            'basic' => [
+            'description' => [
+                'categories' => [
+                    'product_categories' => [
+                        self::HOME_CATEGORY_ID => [
+                            'is_associated' => true,
+                            'is_default' => true,
+                        ],
+                    ],
+                ],
                 'manufacturer' => NoManufacturerId::NO_MANUFACTURER_ID,
             ],
             'stock' => [
@@ -223,7 +244,7 @@ class ProductFormDataProviderTest extends TestCase
     public function getExpectedData(): Generator
     {
         $datasetsByType = [
-            $this->getDatasetsForBasicInformation(),
+            $this->getDatasetsForDescription(),
             $this->getDatasetsForSeo(),
             $this->getDatasetsForRedirectOption(),
             $this->getDatasetsForProductSuppliers(),
@@ -235,6 +256,7 @@ class ProductFormDataProviderTest extends TestCase
             $this->getDatasetsForStock(),
             $this->getDatasetsForShipping(),
             $this->getDatasetsForOptions(),
+            $this->getDatasetsForCategories(),
         ];
 
         foreach ($datasetsByType as $datasetByType) {
@@ -341,7 +363,7 @@ class ProductFormDataProviderTest extends TestCase
     /**
      * @return array
      */
-    private function getDatasetsForBasicInformation(): array
+    private function getDatasetsForDescription(): array
     {
         $datasets = [];
 
@@ -358,17 +380,20 @@ class ProductFormDataProviderTest extends TestCase
             1 => 'english',
             2 => 'french',
         ];
+        $newCover = 'http://localhost/super_cover.jpg';
         $productData = [
             'type' => ProductType::TYPE_COMBINATIONS,
             'name' => $localizedValues,
             'description' => $localizedValues,
             'description_short' => $localizedValues,
+            'cover_thumbnail' => $newCover,
         ];
         $expectedOutputData['header']['name'] = $localizedValues;
         $expectedOutputData['header']['type'] = ProductType::TYPE_COMBINATIONS;
+        $expectedOutputData['header']['cover_thumbnail'] = $newCover;
 
-        $expectedOutputData['basic']['description'] = $localizedValues;
-        $expectedOutputData['basic']['description_short'] = $localizedValues;
+        $expectedOutputData['description']['description'] = $localizedValues;
+        $expectedOutputData['description']['description_short'] = $localizedValues;
 
         $datasets[] = [
             $productData,
@@ -485,6 +510,37 @@ class ProductFormDataProviderTest extends TestCase
     /**
      * @return array
      */
+    private function getDatasetsForCategories(): array
+    {
+        $datasets = [];
+
+        $expectedOutputData = $this->getDefaultOutputData();
+        $productData = [
+            'categories' => [42, 51],
+            'default_category' => 51,
+        ];
+
+        $expectedOutputData['description']['categories']['product_categories'] = [];
+        $expectedOutputData['description']['categories']['product_categories'][42] = [
+            'is_associated' => true,
+            'is_default' => false,
+        ];
+        $expectedOutputData['description']['categories']['product_categories'][51] = [
+            'is_associated' => true,
+            'is_default' => true,
+        ];
+
+        $datasets[] = [
+            $productData,
+            $expectedOutputData,
+        ];
+
+        return $datasets;
+    }
+
+    /**
+     * @return array
+     */
     private function getDatasetsForShipping(): array
     {
         $datasets = [];
@@ -546,9 +602,13 @@ class ProductFormDataProviderTest extends TestCase
             $expectedOutputData,
         ];
 
-        $localizedValues = [
-            1 => 'english',
-            2 => 'french',
+        $localizedNames = [
+            1 => 'english name',
+            2 => 'french name',
+        ];
+        $localizedDescriptions = [
+            1 => 'english description',
+            2 => 'french description',
         ];
         $expectedOutputData = $this->getDefaultOutputData();
         $productData = [
@@ -564,6 +624,16 @@ class ProductFormDataProviderTest extends TestCase
             'ean13' => 'ean13_2',
             'mpn' => 'mpn_2',
             'reference' => 'reference_2',
+            'attachments' => [
+                new AttachmentInformation(
+                    1,
+                    $localizedNames,
+                    $localizedDescriptions,
+                    'test1',
+                    'image/jpeg',
+                    1042
+                ),
+            ],
         ];
         $expectedOutputData['footer']['active'] = false;
         $expectedOutputData['options']['visibility']['visibility'] = ProductVisibility::VISIBLE_IN_CATALOG;
@@ -572,11 +642,21 @@ class ProductFormDataProviderTest extends TestCase
         $expectedOutputData['options']['visibility']['show_price'] = false;
         $expectedOutputData['options']['condition'] = ProductCondition::USED;
         $expectedOutputData['options']['show_condition'] = true;
-        $expectedOutputData['options']['references']['isbn'] = 'isbn_2';
-        $expectedOutputData['options']['references']['upc'] = 'upc_2';
-        $expectedOutputData['options']['references']['ean_13'] = 'ean13_2';
-        $expectedOutputData['options']['references']['mpn'] = 'mpn_2';
-        $expectedOutputData['options']['references']['reference'] = 'reference_2';
+
+        $expectedOutputData['specifications']['references']['isbn'] = 'isbn_2';
+        $expectedOutputData['specifications']['references']['upc'] = 'upc_2';
+        $expectedOutputData['specifications']['references']['ean_13'] = 'ean13_2';
+        $expectedOutputData['specifications']['references']['mpn'] = 'mpn_2';
+        $expectedOutputData['specifications']['references']['reference'] = 'reference_2';
+
+        $expectedOutputData['specifications']['attachments']['attached_files'] = [
+            [
+                'attachment_id' => 1,
+                'name' => 'english name',
+                'file_name' => 'test1',
+                'mime_type' => 'image/jpeg',
+            ],
+        ];
 
         $datasets[] = [
             $productData,
@@ -593,13 +673,25 @@ class ProductFormDataProviderTest extends TestCase
     {
         $datasets = [];
 
+        $categoryName = 'Category 1';
+        $categoryImage = '/path/to/category/img.jpg';
+
         $expectedOutputData = $this->getDefaultOutputData();
         $productData = [
             'redirect_type' => RedirectType::TYPE_CATEGORY_TEMPORARY,
-            'id_type_redirected' => static::DEFAULT_CATEGORY_ID,
+            'redirect_target' => new ProductRedirectTarget(
+                static::DEFAULT_CATEGORY_ID,
+                ProductRedirectTarget::CATEGORY_TYPE,
+                $categoryName,
+                $categoryImage
+            ),
         ];
         $expectedOutputData['seo']['redirect_option']['type'] = RedirectType::TYPE_CATEGORY_TEMPORARY;
-        $expectedOutputData['seo']['redirect_option']['target'] = static::DEFAULT_CATEGORY_ID;
+        $expectedOutputData['seo']['redirect_option']['target'] = [
+            'id' => static::DEFAULT_CATEGORY_ID,
+            'name' => $categoryName,
+            'image' => $categoryImage,
+        ];
 
         $datasets[] = [
             $productData,
@@ -685,7 +777,7 @@ class ProductFormDataProviderTest extends TestCase
         $datasets = [];
 
         $expectedOutputData = $this->getDefaultOutputData();
-        $expectedOutputData['basic']['manufacturer'] = 42;
+        $expectedOutputData['description']['manufacturer'] = 42;
 
         $productData = [
             'manufacturer_id' => 42,
@@ -707,8 +799,8 @@ class ProductFormDataProviderTest extends TestCase
         $datasets = [];
 
         $expectedOutputData = $this->getDefaultOutputData();
-        $expectedOutputData['basic']['features']['feature_values'] = [];
-        $expectedOutputData['basic']['features']['feature_values'][] = [
+        $expectedOutputData['specifications']['features']['feature_values'] = [];
+        $expectedOutputData['specifications']['features']['feature_values'][] = [
             'feature_id' => 42,
             'feature_value_id' => 51,
         ];
@@ -717,7 +809,7 @@ class ProductFormDataProviderTest extends TestCase
             1 => 'english',
             2 => 'french',
         ];
-        $expectedOutputData['basic']['features']['feature_values'][] = [
+        $expectedOutputData['specifications']['features']['feature_values'][] = [
             'feature_id' => 42,
             'feature_value_id' => 69,
             'custom_value' => $localizedValues,
@@ -779,7 +871,7 @@ class ProductFormDataProviderTest extends TestCase
             ],
         ];
 
-        $expectedOutputData['options']['customizations']['customization_fields'] = [
+        $expectedOutputData['specifications']['customizations']['customization_fields'] = [
             [
                 'id' => 1,
                 'name' => $localizedNames,
@@ -822,7 +914,8 @@ class ProductFormDataProviderTest extends TestCase
             $this->createSeoOptions($product),
             $product['attachments'] ?? [],
             $this->createProductStockInformation($product),
-            $this->createVirtualProductFile($product)
+            $this->createVirtualProductFile($product),
+            $product['cover_thumbnail'] ?? static::COVER_URL
         );
     }
 
@@ -963,7 +1056,7 @@ class ProductFormDataProviderTest extends TestCase
             $product['meta_description'] ?? [],
             $product['link_rewrite'] ?? [],
             $product['redirect_type'] ?? RedirectType::TYPE_NOT_FOUND,
-            $product['id_type_redirected'] ?? 0
+            $product['redirect_target'] ?? null
         );
     }
 
@@ -1051,7 +1144,7 @@ class ProductFormDataProviderTest extends TestCase
     {
         return new ProductCategoriesInformation(
             $product['categories'] ?? [self::DEFAULT_CATEGORY_ID],
-            self::DEFAULT_CATEGORY_ID
+            $product['default_category'] ?? self::DEFAULT_CATEGORY_ID
         );
     }
 
@@ -1128,12 +1221,32 @@ class ProductFormDataProviderTest extends TestCase
             'header' => [
                 'type' => ProductType::TYPE_STANDARD,
                 'name' => [],
+                'cover_thumbnail' => static::COVER_URL,
             ],
-            'basic' => [
+            'description' => [
                 'description' => [],
                 'description_short' => [],
-                'features' => [],
+                'categories' => [
+                    'product_categories' => [
+                        self::DEFAULT_CATEGORY_ID => [
+                            'is_associated' => true,
+                            'is_default' => true,
+                        ],
+                    ],
+                ],
                 'manufacturer' => NoManufacturerId::NO_MANUFACTURER_ID,
+            ],
+            'specifications' => [
+                'references' => [
+                    'mpn' => 'mpn',
+                    'upc' => 'upc',
+                    'ean_13' => 'ean13',
+                    'isbn' => 'isbn',
+                    'reference' => 'reference',
+                ],
+                'features' => [],
+                'attachments' => [],
+                'customizations' => [],
             ],
             'stock' => [
                 'quantities' => [
@@ -1176,8 +1289,9 @@ class ProductFormDataProviderTest extends TestCase
                 'link_rewrite' => [],
                 'redirect_option' => [
                     'type' => RedirectType::TYPE_NOT_FOUND,
-                    'target' => 0,
+                    'target' => null,
                 ],
+                'tags' => [],
             ],
             'shipping' => [
                 'dimensions' => [
@@ -1201,17 +1315,8 @@ class ProductFormDataProviderTest extends TestCase
                     'show_price' => true,
                     'online_only' => false,
                 ],
-                'tags' => [],
                 'show_condition' => false,
                 'condition' => ProductCondition::NEW,
-                'references' => [
-                    'mpn' => 'mpn',
-                    'upc' => 'upc',
-                    'ean_13' => 'ean13',
-                    'isbn' => 'isbn',
-                    'reference' => 'reference',
-                ],
-                'customizations' => [],
                 'suppliers' => [],
             ],
             'footer' => [
@@ -1244,7 +1349,9 @@ class ProductFormDataProviderTest extends TestCase
         return new ProductFormDataProvider(
             $queryBusMock,
             $activation,
-            42
+            42,
+            self::HOME_CATEGORY_ID,
+            self::CONTEXT_LANG_ID
         );
     }
 }

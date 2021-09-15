@@ -60,7 +60,7 @@ class ModuleController extends ModuleAbstractController
     public const MAX_MODULES_DISPLAYED = 6;
 
     /**
-     * @AdminSecurity("is_granted(['read'], 'ADMINMODULESSF_')")
+     * @AdminSecurity("is_granted('read', 'ADMINMODULESSF_')")
      *
      * @return Response
      */
@@ -89,7 +89,7 @@ class ModuleController extends ModuleAbstractController
     /**
      * Controller responsible for displaying "Catalog Module Grid" section of Module management pages with ajax.
      *
-     * @AdminSecurity("is_granted(['read'], 'ADMINMODULESSF_')")
+     * @AdminSecurity("is_granted('read', 'ADMINMODULESSF_')")
      *
      * @return Response
      */
@@ -146,7 +146,7 @@ class ModuleController extends ModuleAbstractController
     }
 
     /**
-     * @AdminSecurity("is_granted(['read'], 'ADMINMODULESSF_')")
+     * @AdminSecurity("is_granted('read', 'ADMINMODULESSF_')")
      *
      * @param Request $request
      *
@@ -207,7 +207,9 @@ class ModuleController extends ModuleAbstractController
     }
 
     /**
-     * @AdminSecurity("is_granted(['read', 'create', 'update', 'delete'], 'ADMINMODULESSF_')")
+     * @AdminSecurity(
+     *     "is_granted('read', 'ADMINMODULESSF_') && is_granted('create', 'ADMINMODULESSF_') && is_granted('update', 'ADMINMODULESSF_') && is_granted('delete', 'ADMINMODULESSF_')"
+     * )
      *
      * @param Request $module_name
      *
@@ -230,7 +232,7 @@ class ModuleController extends ModuleAbstractController
 
         // Save history for this module
         $moduleHistory = $this->getDoctrine()
-            ->getRepository('PrestaShopBundle:ModuleHistory')
+            ->getRepository(ModuleHistory::class)
             ->findOneBy(
                 [
                     'idEmployee' => $currentEmployeeId,
@@ -262,7 +264,7 @@ class ModuleController extends ModuleAbstractController
     }
 
     /**
-     * @AdminSecurity("is_granted(['read'], 'ADMINMODULESSF_')")
+     * @AdminSecurity("is_granted('read', 'ADMINMODULESSF_')")
      *
      * @param int $moduleId
      *
@@ -485,9 +487,10 @@ class ModuleController extends ModuleAbstractController
         }
 
         if ($response[$module]['status'] === true && $action != 'uninstall') {
-            $moduleInstance = $moduleRepository->getModule($module);
+            $moduleInstance = $moduleRepository->getModule($module, false, false);
+
             $collection = AddonsCollection::createFrom([$moduleInstance]);
-            $response[$module]['action_menu_html'] = $this->container->get('templating')->render(
+            $response[$module]['action_menu_html'] = $this->container->get('twig')->render(
                 '@PrestaShop/Admin/Module/Includes/action_menu.html.twig',
                 [
                     'module' => $this->container->get('prestashop.adapter.presenter.module')
@@ -632,9 +635,7 @@ class ModuleController extends ModuleAbstractController
             ];
         } catch (Exception $e) {
             try {
-                if (isset($moduleName)) {
-                    $moduleManager->disable($moduleName);
-                }
+                $moduleManager->disable($moduleName);
             } catch (Exception $subE) {
             }
 

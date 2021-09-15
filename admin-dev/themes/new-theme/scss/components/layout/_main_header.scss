@@ -155,6 +155,12 @@ $header-text-color: #4e6167 !default;
         @include transition(all 0.5s);
       }
 
+      .input-group-append {
+        .btn:first-of-type {
+          @include border-radius(0);
+        }
+      }
+
       // behavior when the search form is collapsed
       &.collapsed {
         width: 15.625rem;
@@ -322,8 +328,7 @@ $header-text-color: #4e6167 !default;
       }
     }
 
-    &.header-right-component,
-    &.gamification-component {
+    &.header-right-component {
       margin: {
         right: 0.3125rem;
         left: 0.3125rem;
@@ -395,18 +400,11 @@ $header-text-color: #4e6167 !default;
           overflow: hidden;
           border: none;
           border-top: 1px solid #eaebec;
-          box-shadow: 0 8px 16px 0 rgba(#000, 0.1);
+          box-shadow: 0 8px 16px 0 rgba($black, 0.1);
           @include border-radius(5px);
           transform: inherit !important;
           /* stylelint-enable */
         }
-      }
-    }
-
-    &.gamification-component {
-      @include media-breakpoint-down("sm") {
-        // stylelint-disable-next-line
-        display: none !important;
       }
     }
 

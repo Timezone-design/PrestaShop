@@ -55,6 +55,7 @@ class Install extends CommonPage {
     this.dbLoginInput = '#dbLogin';
     this.dbNameInput = '#dbName';
     this.dbPasswordInput = '#dbPassword';
+    this.dbPrefixInput = '#db_prefix';
     this.testDbConnectionButton = '#btTestDB';
     this.createDbButton = '#btCreateDB';
     this.dbResultCheckOkBlock = '#dbResultCheck.okBlock';
@@ -67,9 +68,9 @@ class Install extends CommonPage {
     this.populateDatabaseStep = '#process_step_populateDatabase';
     this.configureShopStep = '#process_step_configureShop';
     this.installModulesStep = '#process_step_installModules';
-    this.installModulesAddons = '#process_step_installModulesAddons';
     this.installThemeStep = '#process_step_installTheme';
     this.installFixturesStep = '#process_step_installFixtures';
+    this.installPostInstall = '#process_step_postInstall';
     this.installationFinishedStepPageTitle = '#install_process_success h2';
     this.discoverFoButton = '#foBlock';
   }
@@ -168,6 +169,7 @@ class Install extends CommonPage {
     await this.setValue(page, this.dbNameInput, global.INSTALL.DB_NAME);
     await this.setValue(page, this.dbLoginInput, global.INSTALL.DB_USER);
     await this.setValue(page, this.dbPasswordInput, global.INSTALL.DB_PASSWD);
+    await this.setValue(page, this.dbPrefixInput, global.INSTALL.DB_PREFIX);
   }
 
   /**
@@ -231,16 +233,16 @@ class Install extends CommonPage {
         selector = this.installModulesStep;
         break;
 
-      case 'Install addons modules':
-        selector = this.installModulesAddons;
-        break;
-
       case 'Install theme':
         selector = this.installThemeStep;
         break;
 
       case 'Install fixtures':
         selector = this.installFixturesStep;
+        break;
+
+      case 'Post installation scripts':
+        selector = this.installPostInstall;
         break;
 
       default:
